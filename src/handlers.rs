@@ -2,16 +2,8 @@ use actix_web::{get, web, HttpResponse, Responder};
 use tera::Tera;
 
 lazy_static! {
-    pub static ref TEMPLATES: Tera = {
-        let tera = match Tera::new("templates/**/*.html") {
-            Ok(t) => t,
-            Err(e) => {
-                println!("Parsing error(s): {}", e);
-                ::std::process::exit(1);
-            }
-        };
-        tera
-    };
+    pub static ref TEMPLATES: Tera =
+        Tera::new("templates/**/*.html").expect("Failed to parse templates.");
 }
 
 #[get("/")]
