@@ -1,8 +1,8 @@
-use pressure::Pressure;
+use pressure::*;
 
 fn main() -> std::io::Result<()> {
-    let pressure = Pressure::new(
-        std::env::var("INSTANCE_PATH").unwrap_or(
+    let instance = Instance::new(
+        std::env::var("PRESSURE_INSTANCE").unwrap_or(
             std::env::current_dir()
                 .unwrap()
                 .into_os_string()
@@ -10,5 +10,5 @@ fn main() -> std::io::Result<()> {
                 .unwrap(),
         ),
     );
-    pressure.serve("127.0.0.1", 8080)
+    serve(instance, "127.0.0.1", 8080)
 }
