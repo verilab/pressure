@@ -1,4 +1,8 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
+
+use yaml_rust::{Yaml, YamlLoader};
+
+use crate::Result;
 
 #[derive(Clone)]
 pub struct Instance {
@@ -29,5 +33,53 @@ impl Instance {
             pages_folder,
             raw_folder,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Entry {
+    pub meta: Option<Yaml>,
+    pub content: String,
+}
+
+impl Default for Entry {
+    fn default() -> Self {
+        Entry {
+            meta: None,
+            content: "".to_string(),
+        }
+    }
+}
+
+fn load_entry(fullpath: &str, meta_only: bool) -> Result<Entry> {
+    let file_content = fs::read_to_string(fullpath)?;
+    let lines: Vec<&str> = file_content.lines().collect();
+    if lines.len() == 0 {
+        return Ok(Entry::default());
+    }
+    let mut meta = None;
+    let mut content = "".to_string();
+    let mut remained = &lines[..];
+    if lines[0] == "---" {
+        if let Some(fm_end) = lines[1..].iter().position(|&x| x == "---") {
+            let front_matter = lines[1..][0..fm_end].join("\n");
+            meta = Some(YamlLoader::load_from_str(&front_matter)?[0].clone());
+            remained = &lines[1..][fm_end + 1..];
+        }
+    }
+    if !meta_only {
+        content = remained.join("\n");
+    }
+    Ok(Entry { meta, content })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_entry() {
+        let entry = load_entry("tests/test_inst/pages/wow.md", false).unwrap();
+        println!("{:?}", entry);
     }
 }
