@@ -68,7 +68,7 @@ fn load_entry(fullpath: &str, meta_only: bool) -> Result<Entry> {
         }
     }
     if !meta_only {
-        content = remained.join("\n");
+        content = remained.join("\n").trim().to_string();
     }
     Ok(Entry { meta, content })
 }
@@ -80,6 +80,20 @@ mod tests {
     #[test]
     fn test_load_entry() {
         let entry = load_entry("tests/test_inst/pages/wow.md", false).unwrap();
-        println!("{:?}", entry);
+        assert_eq!(entry.content, "WOW");
+        assert_eq!(entry.meta.unwrap()["title"].as_str().unwrap(), "WOW!!!");
+    }
+
+    #[test]
+    fn test_load_entry_meta_only() {
+        let entry = load_entry("tests/test_inst/pages/wow.md", true).unwrap();
+        assert!(entry.content.is_empty());
+        assert_eq!(entry.meta.unwrap()["title"].as_str().unwrap(), "WOW!!!");
+    }
+
+    #[test]
+    fn test_load_entry_failed() {
+        let res = load_entry("tests/test_inst/pages/nonexistent.md", false);
+        assert!(res.is_err());
     }
 }
