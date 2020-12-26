@@ -58,19 +58,32 @@ fn load_entry(fullpath: &str, meta_only: bool) -> Result<Entry> {
         return Ok(Entry::default());
     }
     let mut meta = None;
-    let mut content = "".to_string();
     let mut remained = &lines[..];
     if lines[0] == "---" {
         if let Some(fm_end) = lines[1..].iter().position(|&x| x == "---") {
             let front_matter = lines[1..][0..fm_end].join("\n");
-            meta = Some(YamlLoader::load_from_str(&front_matter)?[0].clone());
+            let mut raw_meta = YamlLoader::load_from_str(&front_matter)?[0].clone();
+            fix_entry_meta(&mut raw_meta);
+            meta = Some(raw_meta);
             remained = &lines[1..][fm_end + 1..];
         }
     }
-    if !meta_only {
-        content = remained.join("\n").trim().to_string();
-    }
+    let content = if !meta_only {
+        remained.join("\n").trim().to_string()
+    } else {
+        "".to_string()
+    };
     Ok(Entry { meta, content })
+}
+
+fn fix_entry_meta(meta: &mut Yaml) {
+    for key in vec!["categories", "tags"] {
+        if let Some(val) = meta.get_mut(key.into()) {
+            if let Yaml::String(_) = val {
+                *val = Yaml::Array(vec![val.clone()])
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -79,16 +92,23 @@ mod tests {
 
     #[test]
     fn test_load_entry() {
-        let entry = load_entry("tests/test_inst/pages/wow.md", false).unwrap();
-        assert_eq!(entry.content, "WOW");
-        assert_eq!(entry.meta.unwrap()["title"].as_str().unwrap(), "WOW!!!");
+        let entry = load_entry("tests/test_inst/pages/test.md", false).unwrap();
+        println!("{:?}", entry);
+        assert_eq!(entry.content, "BAZ\n\nFOO BAR!");
+        let meta = entry.meta.unwrap();
+        assert_eq!(meta["title"].as_str().unwrap(), "Foo bar 中文");
+        assert_eq!(meta["tags"][0].as_str().unwrap(), "foo");
+        assert_eq!(meta["categories"][0].as_str().unwrap(), "bar");
     }
 
     #[test]
     fn test_load_entry_meta_only() {
-        let entry = load_entry("tests/test_inst/pages/wow.md", true).unwrap();
+        let entry = load_entry("tests/test_inst/pages/test.md", true).unwrap();
         assert!(entry.content.is_empty());
-        assert_eq!(entry.meta.unwrap()["title"].as_str().unwrap(), "WOW!!!");
+        assert_eq!(
+            entry.meta.unwrap()["title"].as_str().unwrap(),
+            "Foo bar 中文"
+        );
     }
 
     #[test]

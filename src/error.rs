@@ -3,6 +3,14 @@ pub struct Error {
     message: String,
 }
 
+impl Error {
+    pub fn new(message: &str) -> Error {
+        Error {
+            message: message.to_string(),
+        }
+    }
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl From<std::io::Error> for Error {
