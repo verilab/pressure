@@ -12,4 +12,4 @@ tera = "1"
 lazy_static = "1"
 toml = "0.5"
 serde = { version = "1", features = ["derive"] }
-yaml-rust = "0.4"
+yaml-rust = { git = "https://github.com/richardchien/yaml-rust" }
