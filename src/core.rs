@@ -38,6 +38,7 @@ impl Instance {
 
 #[derive(Debug)]
 pub struct Entry {
+    pub filepath: PathBuf,
     pub meta: Option<Yaml>,
     pub content: String,
 }
@@ -45,17 +46,25 @@ pub struct Entry {
 impl Default for Entry {
     fn default() -> Self {
         Entry {
+            filepath: "".into(),
             meta: None,
-            content: "".to_string(),
+            content: "".into(),
         }
     }
 }
 
-fn load_entry(fullpath: &str, meta_only: bool) -> Result<Entry> {
-    let file_content = fs::read_to_string(fullpath)?;
+fn load_entry<P>(filepath: P, meta_only: bool) -> Result<Entry>
+where
+    P: Into<PathBuf>,
+{
+    let filepath = filepath.into().canonicalize()?;
+    let file_content = fs::read_to_string(&filepath)?;
     let lines: Vec<&str> = file_content.lines().collect();
     if lines.len() == 0 {
-        return Ok(Entry::default());
+        return Ok(Entry {
+            filepath,
+            ..Entry::default()
+        });
     }
     let mut meta = None;
     let mut remained = &lines[..];
@@ -63,7 +72,15 @@ fn load_entry(fullpath: &str, meta_only: bool) -> Result<Entry> {
         if let Some(fm_end) = lines[1..].iter().position(|&x| x == "---") {
             let front_matter = lines[1..][0..fm_end].join("\n");
             let mut raw_meta = YamlLoader::load_from_str(&front_matter)?[0].clone();
-            fix_entry_meta(&mut raw_meta);
+
+            for key in vec!["categories", "tags"] {
+                if let Some(val) = raw_meta.get_mut(key) {
+                    if let Yaml::String(_) = val {
+                        *val = Yaml::Array(vec![val.clone()])
+                    }
+                }
+            }
+
             meta = Some(raw_meta);
             remained = &lines[1..][fm_end + 1..];
         }
@@ -73,17 +90,11 @@ fn load_entry(fullpath: &str, meta_only: bool) -> Result<Entry> {
     } else {
         "".to_string()
     };
-    Ok(Entry { meta, content })
-}
-
-fn fix_entry_meta(meta: &mut Yaml) {
-    for key in vec!["categories", "tags"] {
-        if let Some(val) = meta.get_mut(key.into()) {
-            if let Yaml::String(_) = val {
-                *val = Yaml::Array(vec![val.clone()])
-            }
-        }
-    }
+    Ok(Entry {
+        filepath,
+        meta,
+        content,
+    })
 }
 
 #[cfg(test)]
