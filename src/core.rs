@@ -1,8 +1,8 @@
 use std::{fs, path::PathBuf};
 
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{yaml, Yaml, YamlLoader};
 
-use crate::Result;
+use crate::{Error, Result};
 
 #[derive(Clone)]
 pub struct Instance {
@@ -34,12 +34,34 @@ impl Instance {
             raw_folder,
         }
     }
+
+    pub fn load_post(
+        &self,
+        year: u16,
+        month: u8,
+        day: u8,
+        name: &str,
+        meta_only: bool,
+    ) -> Result<Entry> {
+        let filename = format!("{:04}-{:02}-{:2}-{}.md", year, month, day, name);
+        let mut post = load_entry(self.posts_folder.join(filename), meta_only)?;
+        if let Yaml::Hash(meta_hash) = &mut post.meta {
+            let title_key = Yaml::String("title".to_string());
+            if !meta_hash.contains_key(&title_key) {
+                meta_hash.insert(
+                    title_key,
+                    Yaml::String(name.split("-").collect::<Vec<&str>>().join(" ")),
+                );
+            }
+        }
+        Ok(post)
+    }
 }
 
 #[derive(Debug)]
 pub struct Entry {
     pub filepath: PathBuf,
-    pub meta: Option<Yaml>,
+    pub meta: Yaml,
     pub content: String,
 }
 
@@ -47,7 +69,7 @@ impl Default for Entry {
     fn default() -> Self {
         Entry {
             filepath: "".into(),
-            meta: None,
+            meta: Yaml::Hash(yaml::Hash::new()),
             content: "".into(),
         }
     }
@@ -57,44 +79,42 @@ fn load_entry<P>(filepath: P, meta_only: bool) -> Result<Entry>
 where
     P: Into<PathBuf>,
 {
-    let filepath = filepath.into().canonicalize()?;
-    let file_content = fs::read_to_string(&filepath)?;
+    let mut entry = Entry {
+        filepath: filepath.into().canonicalize()?,
+        ..Entry::default()
+    };
+    let file_content = fs::read_to_string(&entry.filepath)?;
     let lines: Vec<&str> = file_content.lines().collect();
     if lines.len() == 0 {
-        return Ok(Entry {
-            filepath,
-            ..Entry::default()
-        });
+        return Ok(entry);
     }
-    let mut meta = None;
     let mut remained = &lines[..];
     if lines[0] == "---" {
         if let Some(fm_end) = lines[1..].iter().position(|&x| x == "---") {
             let front_matter = lines[1..][0..fm_end].join("\n");
-            let mut raw_meta = YamlLoader::load_from_str(&front_matter)?[0].clone();
+            entry.meta = YamlLoader::load_from_str(&front_matter)?[0].clone();
+            match entry.meta {
+                Yaml::Hash(_) => {}
+                _ => return Err(Error::new("Frontmatter must be a valid YAML hash map.")),
+            }
 
             for key in vec!["categories", "tags"] {
-                if let Some(val) = raw_meta.get_mut(key) {
+                if let Some(val) = entry.meta.get_mut(key) {
                     if let Yaml::String(_) = val {
                         *val = Yaml::Array(vec![val.clone()])
                     }
                 }
             }
 
-            meta = Some(raw_meta);
             remained = &lines[1..][fm_end + 1..];
         }
     }
-    let content = if !meta_only {
+    entry.content = if !meta_only {
         remained.join("\n").trim().to_string()
     } else {
         "".to_string()
     };
-    Ok(Entry {
-        filepath,
-        meta,
-        content,
-    })
+    Ok(entry)
 }
 
 #[cfg(test)]
@@ -104,27 +124,31 @@ mod tests {
     #[test]
     fn test_load_entry() {
         let entry = load_entry("tests/test_inst/pages/test.md", false).unwrap();
-        println!("{:?}", entry);
         assert_eq!(entry.content, "BAZ\n\nFOO BAR!");
-        let meta = entry.meta.unwrap();
-        assert_eq!(meta["title"].as_str().unwrap(), "Foo bar 中文");
-        assert_eq!(meta["tags"][0].as_str().unwrap(), "foo");
-        assert_eq!(meta["categories"][0].as_str().unwrap(), "bar");
+        assert_eq!(entry.meta["title"].as_str().unwrap(), "Foo bar 中文");
+        assert_eq!(entry.meta["tags"][0].as_str().unwrap(), "foo");
+        assert_eq!(entry.meta["categories"][0].as_str().unwrap(), "bar");
     }
 
     #[test]
     fn test_load_entry_meta_only() {
         let entry = load_entry("tests/test_inst/pages/test.md", true).unwrap();
         assert!(entry.content.is_empty());
-        assert_eq!(
-            entry.meta.unwrap()["title"].as_str().unwrap(),
-            "Foo bar 中文"
-        );
+        assert_eq!(entry.meta["title"].as_str().unwrap(), "Foo bar 中文");
     }
 
     #[test]
     fn test_load_entry_failed() {
         let res = load_entry("tests/test_inst/pages/nonexistent.md", false);
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_load_post_no_content() {
+        let inst = Instance::new("tests/test_inst");
+        let post = inst
+            .load_post(2020, 12, 27, "test-no-content", false)
+            .unwrap();
+        assert_eq!(post.meta["title"].as_str().unwrap(), "test no content");
     }
 }
