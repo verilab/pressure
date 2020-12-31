@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use yaml_rust::{yaml, Yaml, YamlLoader};
 
-use crate::{Error, Result};
+use crate::{Config, Error, Result};
 
 #[derive(Clone)]
 pub struct Instance {
@@ -13,10 +13,11 @@ pub struct Instance {
     pub posts_folder: PathBuf,
     pub pages_folder: PathBuf,
     pub raw_folder: PathBuf,
+    pub config: Config,
 }
 
 impl Instance {
-    pub fn new<T: Into<PathBuf>>(root_folder: T) -> Instance {
+    pub fn new<T: Into<PathBuf>>(root_folder: T) -> Result<Instance> {
         let root_folder = root_folder.into();
         let static_folder = root_folder.join("static");
         let template_folder = root_folder.join("theme").join("templates");
@@ -24,7 +25,8 @@ impl Instance {
         let posts_folder = root_folder.join("posts");
         let pages_folder = root_folder.join("pages");
         let raw_folder = root_folder.join("raw");
-        Instance {
+        let config = Config::load(root_folder.join("config.toml"))?;
+        Ok(Instance {
             root_folder,
             static_folder,
             template_folder,
@@ -32,7 +34,8 @@ impl Instance {
             posts_folder,
             pages_folder,
             raw_folder,
-        }
+            config,
+        })
     }
 
     pub fn load_post(
@@ -146,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_load_post_no_content() {
-        let inst = Instance::new("tests/test_inst");
+        let inst = Instance::new("tests/test_inst").unwrap();
         let post = inst
             .load_post(2020, 12, 27, "test-no-content", false)
             .unwrap();

@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub site: SiteConfig,
     pub web: WebConfig,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SiteConfig {
     pub title: String,
     pub subtitle: Option<String>,
@@ -19,7 +19,7 @@ pub struct SiteConfig {
     pub timezone: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct WebConfig {
     pub posts_per_page_on_index: u32,
 }
