@@ -90,8 +90,9 @@ where
     }
     let mut remained = &lines[..];
     if lines[0] == "---" {
-        if let Some(fm_end) = lines[1..].iter().position(|&x| x == "---") {
-            let front_matter = lines[1..][0..fm_end].join("\n");
+        let tmp_lines = &lines[1..];
+        if let Some(fm_end) = tmp_lines.iter().position(|&x| x == "---") {
+            let front_matter = tmp_lines[..fm_end].join("\n");
             entry.meta = YamlLoader::load_from_str(&front_matter)?[0].clone();
             match entry.meta {
                 Yaml::Hash(_) => {}
@@ -106,7 +107,7 @@ where
                 }
             }
 
-            remained = &lines[1..][fm_end + 1..];
+            remained = &tmp_lines[fm_end + 1..];
         }
     }
     entry.content = if !meta_only {
