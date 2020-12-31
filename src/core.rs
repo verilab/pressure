@@ -46,7 +46,7 @@ impl Instance {
         name: &str,
         meta_only: bool,
     ) -> Result<Entry> {
-        let filename = format!("{:04}-{:02}-{:2}-{}.md", year, month, day, name);
+        let filename = format!("{:04}-{:02}-{:02}-{}.md", year, month, day, name);
         let mut post = load_entry(self.posts_folder.join(filename), meta_only)?;
         if let Yaml::Hash(meta_hash) = &mut post.meta {
             let title_key = Yaml::String("title".to_string());
@@ -154,5 +154,19 @@ mod tests {
             .load_post(2020, 12, 27, "test-no-content", false)
             .unwrap();
         assert_eq!(post.meta["title"].as_str().unwrap(), "test no content");
+    }
+
+    #[test]
+    fn test_load_post() {
+        let inst = Instance::new("tests/test_inst").unwrap();
+        let post = inst.load_post(2020, 8, 31, "test", false).unwrap();
+        assert_eq!(post.meta["title"].as_str().unwrap(), "测试");
+        assert_eq!(
+            post.meta["categories"].as_vec().unwrap()[0]
+                .as_str()
+                .unwrap(),
+            "Dev"
+        );
+        assert!(post.content.contains("## 喵"));
     }
 }
