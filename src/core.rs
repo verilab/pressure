@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf};
 
+use regex::Regex;
 use yaml_rust::{yaml, Yaml, YamlLoader};
 
 use crate::{Config, Error, Result};
@@ -58,6 +59,28 @@ impl Instance {
             }
         }
         Ok(post)
+    }
+
+    pub fn load_posts(&self, meta_only: bool) -> Result<Vec<Entry>> {
+        lazy_static! {
+            static ref POST_FILE_NAME_RE: Regex =
+                Regex::new(r#"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-(?P<name>.+).md$"#)
+                    .unwrap();
+        }
+        Ok(fs::read_dir(&self.posts_folder)?
+            .filter_map(|dirent| {
+                let dirent = dirent.ok()?;
+                let filename = dirent.file_name().to_str()?.to_string();
+                let caps = POST_FILE_NAME_RE.captures(&filename)?;
+                let (year, month, day, name) = (
+                    caps["year"].parse::<u16>().unwrap(),
+                    caps["month"].parse::<u8>().unwrap(),
+                    caps["day"].parse::<u8>().unwrap(),
+                    &caps["name"],
+                );
+                self.load_post(year, month, day, name, meta_only).ok()
+            })
+            .collect())
     }
 }
 
@@ -168,5 +191,28 @@ mod tests {
             "Dev"
         );
         assert!(post.content.contains("## 喵"));
+    }
+
+    #[test]
+    fn test_load_posts() {
+        let inst = Instance::new("tests/test_inst").unwrap();
+        let posts = inst.load_posts(false).unwrap();
+        assert_eq!(posts.len(), 2);
+        let mut content_count = 0;
+        for post in &posts {
+            if !post.content.is_empty() {
+                content_count += 1;
+            }
+        }
+        assert_ne!(content_count, 0);
+
+        let posts = inst.load_posts(true).unwrap();
+        let mut content_count = 0;
+        for post in &posts {
+            if !post.content.is_empty() {
+                content_count += 1;
+            }
+        }
+        assert_eq!(content_count, 0);
     }
 }

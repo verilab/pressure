@@ -1334,6 +1334,7 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "lazy_static",
+ "regex",
  "serde",
  "tera",
  "toml",
