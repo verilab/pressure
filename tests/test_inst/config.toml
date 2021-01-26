@@ -5,4 +5,4 @@ author = "My Name"
 timezone = "Asia/Shanghai"
 
 [web]
-posts_per_page_on_index = 5
+posts_per_index_page = 5

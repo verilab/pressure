@@ -21,7 +21,7 @@ pub struct SiteConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct WebConfig {
-    pub posts_per_page_on_index: u32,
+    pub posts_per_index_page: u32,
 }
 
 impl Config {
@@ -49,12 +49,12 @@ author = \"NAME\"
 timezone = \"Asia/Shanghai\"
 
 [web]
-posts_per_page_on_index = 10
+posts_per_index_page = 10
         ";
         let config = Config::from_str(config_str).unwrap();
         assert_eq!(config.site.title, "BLOG");
         assert_eq!(config.site.author.unwrap(), "NAME");
-        assert_eq!(config.web.posts_per_page_on_index, 10);
+        assert_eq!(config.web.posts_per_index_page, 10);
     }
 
     #[test]
@@ -63,6 +63,6 @@ posts_per_page_on_index = 10
         assert_eq!(config.site.title, "My Blog");
         assert!(config.site.subtitle.is_some());
         assert_eq!(config.site.subtitle.unwrap(), "Here is my blog.");
-        assert_eq!(config.web.posts_per_page_on_index, 5);
+        assert_eq!(config.web.posts_per_index_page, 5);
     }
 }
