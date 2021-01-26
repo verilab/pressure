@@ -3,16 +3,19 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use tera::{Context, Tera};
 
-use crate::core::Instance;
+use crate::{Instance, PressResult};
 
 #[get("/")]
 async fn index(state: web::Data<State>) -> impl Responder {
-    HttpResponse::Ok().body(
-        state
-            .templates
-            .render("index.html", &Context::new())
-            .unwrap(),
-    )
+    let posts = state.instance.load_posts(false);
+    if let Err(_) = posts {
+        return HttpResponse::InternalServerError().finish();
+    }
+    let posts = posts.unwrap();
+
+    let mut context = Context::new();
+    context.insert("entries", &posts);
+    HttpResponse::Ok().body(state.templates.render("index.html", &context).unwrap())
 }
 
 #[get("/page/{page_num}/")]
@@ -57,9 +60,9 @@ struct State {
 }
 
 /// Serve Pressure instance as a web app.
-pub fn serve(instance: Instance, host: &str, port: u16) -> std::io::Result<()> {
+pub fn serve(instance: Instance, host: &str, port: u16) -> PressResult<()> {
     let addr = format!("{}:{}", host, port);
-    actix_web::rt::System::new("main").block_on(async move {
+    Ok(actix_web::rt::System::new("main").block_on(async move {
         HttpServer::new(move || {
             App::new()
                 .app_data(web::Data::new(State {
@@ -85,5 +88,5 @@ pub fn serve(instance: Instance, host: &str, port: u16) -> std::io::Result<()> {
         .bind(addr)?
         .run()
         .await
-    })
+    })?)
 }

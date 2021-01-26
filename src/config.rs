@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
+use crate::PressResult;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -25,11 +25,11 @@ pub struct WebConfig {
 }
 
 impl Config {
-    pub fn from_str(config_str: &str) -> Result<Config> {
+    pub fn from_str(config_str: &str) -> PressResult<Config> {
         Ok(toml::from_str(&config_str)?)
     }
 
-    pub fn load<T: Into<PathBuf>>(config_path: T) -> Result<Config> {
+    pub fn load<T: Into<PathBuf>>(config_path: T) -> PressResult<Config> {
         let config_str = std::fs::read_to_string(config_path.into())?;
         Self::from_str(&config_str)
     }

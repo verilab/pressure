@@ -1,6 +1,6 @@
 use pressure::*;
 
-fn main() -> std::io::Result<()> {
+fn main() -> PressResult<()> {
     let instance = Instance::new(
         std::env::var("PRESSURE_INSTANCE").unwrap_or(
             std::env::current_dir()
@@ -9,6 +9,6 @@ fn main() -> std::io::Result<()> {
                 .into_string()
                 .unwrap(),
         ),
-    );
+    )?;
     serve(instance, "127.0.0.1", 8080)
 }

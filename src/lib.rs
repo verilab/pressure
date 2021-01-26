@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate lazy_static;
 
+mod ser;
+
 mod web;
 pub use crate::web::*;
 

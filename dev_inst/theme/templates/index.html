@@ -9,8 +9,9 @@
 
 <body>
   <ul>
-    <li>Hello, world!</li>
-    <li>Some other post</li>
+    {% for entry in entries %}
+    <li>{{ entry.filepath }} {{ entry.meta.title }}</li>
+    {% endfor %}
   </ul>
 </body>
 

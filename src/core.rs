@@ -3,7 +3,7 @@ use std::{fs, path::PathBuf};
 use regex::Regex;
 use yaml_rust::{yaml, Yaml, YamlLoader};
 
-use crate::{Config, Error, Result};
+use crate::{Config, PressError, PressResult};
 
 #[derive(Clone)]
 pub struct Instance {
@@ -18,7 +18,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn new<T: Into<PathBuf>>(root_folder: T) -> Result<Instance> {
+    pub fn new<T: Into<PathBuf>>(root_folder: T) -> PressResult<Instance> {
         let root_folder = root_folder.into();
         let static_folder = root_folder.join("static");
         let template_folder = root_folder.join("theme").join("templates");
@@ -46,7 +46,7 @@ impl Instance {
         day: u8,
         name: &str,
         meta_only: bool,
-    ) -> Result<Entry> {
+    ) -> PressResult<Entry> {
         let filename = format!("{:04}-{:02}-{:02}-{}.md", year, month, day, name);
         let mut post = load_entry(self.posts_folder.join(filename), meta_only)?;
         if let Yaml::Hash(meta_hash) = &mut post.meta {
@@ -61,7 +61,7 @@ impl Instance {
         Ok(post)
     }
 
-    pub fn load_posts(&self, meta_only: bool) -> Result<Vec<Entry>> {
+    pub fn load_posts(&self, meta_only: bool) -> PressResult<Vec<Entry>> {
         lazy_static! {
             static ref POST_FILE_NAME_RE: Regex =
                 Regex::new(r#"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-(?P<name>.+).md$"#)
@@ -84,7 +84,7 @@ impl Instance {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Entry {
     pub filepath: PathBuf,
     pub meta: Yaml,
@@ -101,7 +101,7 @@ impl Default for Entry {
     }
 }
 
-fn load_entry<P>(filepath: P, meta_only: bool) -> Result<Entry>
+fn load_entry<P>(filepath: P, meta_only: bool) -> PressResult<Entry>
 where
     P: Into<PathBuf>,
 {
@@ -122,7 +122,11 @@ where
             entry.meta = YamlLoader::load_from_str(&front_matter)?[0].clone();
             match entry.meta {
                 Yaml::Hash(_) => {}
-                _ => return Err(Error::new("Frontmatter must be a valid YAML hash map.")),
+                _ => {
+                    return Err(PressError::new(
+                        "Frontmatter must be a valid YAML hash map.",
+                    ))
+                }
             }
 
             for key in vec!["categories", "tags"] {
