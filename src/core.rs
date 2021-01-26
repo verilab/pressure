@@ -49,14 +49,13 @@ impl Instance {
     ) -> PressResult<Entry> {
         let filename = format!("{:04}-{:02}-{:02}-{}.md", year, month, day, name);
         let mut post = load_entry(self.posts_folder.join(filename), meta_only)?;
-        if let Yaml::Hash(meta_hash) = &mut post.meta {
-            let title_key = Yaml::String("title".to_string());
-            if !meta_hash.contains_key(&title_key) {
-                meta_hash.insert(
-                    title_key,
-                    Yaml::String(name.split("-").collect::<Vec<&str>>().join(" ")),
-                );
-            }
+        let meta = post.meta.as_hash_mut().unwrap();
+        let title_key = Yaml::String("title".to_string());
+        if !meta.contains_key(&title_key) {
+            meta.insert(
+                title_key,
+                Yaml::String(name.split("-").collect::<Vec<&str>>().join(" ")),
+            );
         }
         Ok(post)
     }
@@ -101,6 +100,8 @@ impl Default for Entry {
     }
 }
 
+/// Load a Markdown entry, either a post or a page.
+/// If ok, the entry.meta field is guarenteed to be an Yaml::Hash.
 fn load_entry<P>(filepath: P, meta_only: bool) -> PressResult<Entry>
 where
     P: Into<PathBuf>,
