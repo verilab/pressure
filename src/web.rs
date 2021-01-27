@@ -26,10 +26,6 @@ async fn index(state: web::Data<State>, req: HttpRequest) -> impl Responder {
     }
     let posts = posts.unwrap();
 
-    let rmap = req.resource_map().clone();
-    println!("{:?}", rmap.url_for(&req, "index_page", &["2"]));
-
-    // println!("{:?}", req.url_for("index_page", &["2"]));
     let mut context = new_context(&state);
     context.insert("entries", &posts);
     HttpResponse::Ok().body(state.templates.render("index.html", &context).unwrap())
@@ -90,35 +86,33 @@ thread_local! {
     static ROUTES_KEY: OnceCell<ResourceMap> = OnceCell::new();
 }
 
-fn make_url_for() -> impl tera::Function {
-    move |args: &HashMap<String, tera::Value>| -> Result<tera::Value, tera::Error> {
-        let name = args["name"]
-            .as_str()
-            .ok_or(tera::Error::msg("`name` should be a string"))?;
-        let empty_elements = tera::Value::Array(vec![]);
-        let elements_iter = args
-            .get("elements")
-            .unwrap_or(&empty_elements)
-            .as_array()
-            .ok_or(tera::Error::msg("`elements` should be an array"))?
-            .iter();
-        let mut elements = vec![];
-        for elem in elements_iter {
-            elements.push(elem.as_str().ok_or(tera::Error::msg(
-                "`elements` array should contain only strings",
-            ))?);
-        }
-        ROUTES_KEY.with(|routes| {
-            let routes = routes.get().ok_or(tera::Error::msg(
-                "`url_for` should only be called in request context",
-            ))?;
-            let fake_req = TestRequest::default().to_http_request();
-            let url = routes
-                .url_for(&fake_req, name, elements)
-                .or(Err(tera::Error::msg("resource not found")))?;
-            Ok(tera::Value::String(url.path().to_string())) // TODO: prepend url root
-        })
+fn tera_url_for(args: &HashMap<String, tera::Value>) -> Result<tera::Value, tera::Error> {
+    let name = args["name"]
+        .as_str()
+        .ok_or(tera::Error::msg("`name` should be a string"))?;
+    let empty_elements = tera::Value::Array(vec![]);
+    let elements_iter = args
+        .get("elements")
+        .unwrap_or(&empty_elements)
+        .as_array()
+        .ok_or(tera::Error::msg("`elements` should be an array"))?
+        .iter();
+    let mut elements = vec![];
+    for elem in elements_iter {
+        elements.push(elem.as_str().ok_or(tera::Error::msg(
+            "`elements` array should contain only strings",
+        ))?);
     }
+    ROUTES_KEY.with(|routes| {
+        let routes = routes.get().ok_or(tera::Error::msg(
+            "`url_for` should only be called in request context",
+        ))?;
+        let fake_req = TestRequest::default().to_http_request();
+        let url = routes
+            .url_for(&fake_req, name, elements)
+            .or(Err(tera::Error::msg("resource not found")))?;
+        Ok(tera::Value::String(url.path().to_string())) // TODO: prepend url root
+    })
 }
 
 struct State {
@@ -141,8 +135,7 @@ pub fn serve(instance: Instance, host: &str, port: u16) -> PressResult<()> {
             )
             .expect("Failed to parse templates.");
 
-            // let routes = Arc::new(Mutex::new(OnceCell::new()));
-            tera.register_function("url_for", make_url_for());
+            tera.register_function("url_for", tera_url_for);
 
             App::new()
                 .app_data(web::Data::new(State {
