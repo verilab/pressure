@@ -5,7 +5,7 @@ use yaml_rust::{yaml, Yaml, YamlLoader};
 
 use crate::{Config, PressError, PressResult};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Instance {
     pub root_folder: PathBuf,
     pub static_folder: PathBuf,

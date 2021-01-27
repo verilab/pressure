@@ -46,6 +46,10 @@ impl Serialize for Entry {
         S: serde::Serializer,
     {
         let mut s = serializer.serialize_map(None)?;
+        for (k, v) in self.meta.as_hash().unwrap() {
+            s.serialize_entry(&SerYaml(k), &SerYaml(v))?;
+        }
+        s.serialize_entry("url", "")?;
         s.serialize_entry("filepath", &self.filepath)?;
         s.serialize_entry("meta", &SerYaml(&self.meta))?;
         s.serialize_entry("content", &self.content)?;

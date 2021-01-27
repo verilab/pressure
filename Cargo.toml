@@ -8,9 +8,14 @@ edition = "2018"
 
 [dependencies]
 actix-web = "3"
-tera = "1"
+actix-files = "0.5"
+actix-service = "1"
+tera = { git = "https://github.com/verilab/tera" }
 lazy_static = "1"
 toml = "0.5"
 serde = { version = "1", features = ["derive"] }
-yaml-rust = { git = "https://github.com/richardchien/yaml-rust" }
+yaml-rust = { git = "https://github.com/verilab/yaml-rust" }
 regex = "1"
+
+[patch.crates-io]
+actix-web-codegen = { git = "https://github.com/verilab/actix-web" }
