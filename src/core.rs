@@ -1,9 +1,30 @@
 use std::{fs, path::PathBuf};
 
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use yaml_rust::{yaml, Yaml, YamlLoader};
 
-use crate::{Config, PressError, PressResult};
+use crate::{PressError, PressResult};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Site {
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub timezone: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct Config {
+    pub posts_per_index_page: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Info {
+    site: Site,
+    config: Config,
+}
 
 #[derive(Debug, Clone)]
 pub struct Instance {
@@ -14,6 +35,7 @@ pub struct Instance {
     pub posts_folder: PathBuf,
     pub pages_folder: PathBuf,
     pub raw_folder: PathBuf,
+    pub site: Site,
     pub config: Config,
 }
 
@@ -26,7 +48,8 @@ impl Instance {
         let posts_folder = root_folder.join("posts");
         let pages_folder = root_folder.join("pages");
         let raw_folder = root_folder.join("raw");
-        let config = Config::load(root_folder.join("config.toml"))?;
+        let Info { site, config } =
+            toml::from_str(&std::fs::read_to_string(root_folder.join("pressure.toml"))?)?;
         Ok(Instance {
             root_folder,
             static_folder,
@@ -35,6 +58,7 @@ impl Instance {
             posts_folder,
             pages_folder,
             raw_folder,
+            site,
             config,
         })
     }
@@ -152,6 +176,16 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_create_instance() {
+        let root_folder = PathBuf::from("tests/test_inst").canonicalize().unwrap();
+        let inst = Instance::new(&root_folder).unwrap();
+        assert_eq!(inst.root_folder, root_folder);
+        assert_eq!(inst.site.title, "My Blog");
+        assert_eq!(inst.site.subtitle.unwrap(), "Here is my blog.");
+        assert_eq!(inst.config.posts_per_index_page, 5);
+    }
 
     #[test]
     fn test_load_entry() {

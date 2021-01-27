@@ -4,5 +4,5 @@ subtitle = "Here is my blog."
 author = "My Name"
 timezone = "Asia/Shanghai"
 
-[web]
+[config]
 posts_per_index_page = 5

@@ -13,7 +13,8 @@ use crate::{Instance, PressResult};
 
 fn new_context(state: &web::Data<State>) -> Context {
     let mut ctx = Context::new();
-    ctx.insert("site", &state.instance.config.site);
+    ctx.insert("site", &state.instance.site);
+    ctx.insert("config", &state.instance.config);
     ctx
 }
 
