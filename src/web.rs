@@ -91,7 +91,6 @@ thread_local! {
 
 fn make_url_for() -> impl tera::Function {
     move |args: &HashMap<String, tera::Value>| -> Result<tera::Value, tera::Error> {
-        println!("args: {:?}", args);
         let name = args["name"]
             .as_str()
             .ok_or(tera::Error::msg("`name` should be a string"))?;
@@ -116,8 +115,7 @@ fn make_url_for() -> impl tera::Function {
             let url = routes
                 .url_for(&fake_req, name, elements)
                 .or(Err(tera::Error::msg("resource not found")))?;
-            println!("url: {:?}", url);
-            Ok(tera::Value::String(url.path().to_string()))
+            Ok(tera::Value::String(url.path().to_string())) // TODO: prepend url root
         })
     }
 }
