@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf};
 
+use comrak::{markdown_to_html, ComrakOptions};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use yaml_rust::{yaml, Yaml, YamlLoader};
@@ -166,7 +167,7 @@ where
         }
     }
     entry.content = if !meta_only {
-        remained.join("\n").trim().to_string()
+        markdown_to_html(remained.join("\n").trim(), &ComrakOptions::default())
     } else {
         "".to_string()
     };
