@@ -1,8 +1,0 @@
-[site]
-title = "My Blog"
-subtitle = "Here is my blog."
-author = "My Name"
-timezone = "Asia/Shanghai"
-
-[config]
-posts_per_index_page = 5
