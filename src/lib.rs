@@ -3,6 +3,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate maplit;
+
 mod ser;
 
 mod web;

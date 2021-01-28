@@ -1,6 +1,6 @@
 //! This module handles web routing and template rendering.
 
-use std::{collections::HashMap, lazy::OnceCell, path::PathBuf};
+use std::{cmp::min, collections::HashMap, lazy::OnceCell, path::PathBuf};
 
 use actix_service::Service;
 use actix_web::{
@@ -18,25 +18,58 @@ fn new_context(state: &web::Data<State>) -> Context {
     ctx
 }
 
-#[get("/")]
-async fn index(state: web::Data<State>, req: HttpRequest) -> impl Responder {
-    let posts = state.instance.load_posts(false);
-    if posts.is_err() {
-        return HttpResponse::InternalServerError().finish();
+fn handle_index_page(state: web::Data<State>, req: HttpRequest, page_num: usize) -> impl Responder {
+    let posts_per_page = state.instance.config.posts_per_index_page as usize;
+    let mut posts = state.instance.load_posts(true).unwrap();
+    let post_count = posts.len();
+    let page_count = (post_count + posts_per_page - 1) / posts_per_page;
+    if page_num < 1 || page_num > page_count {
+        return HttpResponse::NotFound().finish();
     }
-    let posts = posts.unwrap();
+    let prev_url = if page_num == 1 {
+        "".to_string()
+    } else if page_num == 2 {
+        req.url_for_static("index").unwrap().path().to_string()
+    } else {
+        req.url_for("index_page", &[(page_num - 1).to_string()])
+            .unwrap()
+            .path()
+            .to_string()
+    };
+    let next_url = if page_num < page_count {
+        req.url_for("index_page", &[(page_num + 1).to_string()])
+            .unwrap()
+            .path()
+            .to_string()
+    } else {
+        "".to_string()
+    };
+    let begin = (page_num - 1) * posts_per_page;
+    let end = min(post_count, begin + posts_per_page);
+    let posts_to_render = &mut posts[begin..end];
+    posts_to_render.iter_mut().for_each(|p| p.load_content());
 
     let mut context = new_context(&state);
-    context.insert("entries", &posts);
+    context.insert("entries", posts_to_render);
+    context.insert(
+        "pager",
+        &hashmap! {"prev_url" => prev_url, "next_url" => next_url},
+    );
     HttpResponse::Ok().body(state.templates.render("index.html", &context).unwrap())
+}
+
+#[get("/")]
+async fn index(state: web::Data<State>, req: HttpRequest) -> impl Responder {
+    handle_index_page(state, req, 1)
 }
 
 #[get("/page/{page_num}/")]
 async fn index_page(
     state: web::Data<State>,
-    web::Path(page_num): web::Path<u32>,
+    req: HttpRequest,
+    web::Path(page_num): web::Path<usize>,
 ) -> impl Responder {
-    HttpResponse::Ok().body(format!("page_num: {}", page_num))
+    handle_index_page(state, req, page_num)
 }
 
 #[get("/post/{year}/{month}/{day}/{name}/")]

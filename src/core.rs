@@ -125,6 +125,13 @@ impl Default for Entry {
     }
 }
 
+impl Entry {
+    pub fn load_content(&mut self) {
+        let entry = load_entry(&self.filepath, false).unwrap();
+        self.content = entry.content;
+    }
+}
+
 /// Load a Markdown entry, either a post or a page.
 /// If ok, the entry.meta field is guarenteed to be an Yaml::Hash.
 fn load_entry<P>(filepath: P, meta_only: bool) -> PressResult<Entry>

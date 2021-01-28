@@ -17,6 +17,7 @@ serde = { version = "1", features = ["derive"] }
 yaml-rust = { git = "https://github.com/verilab/yaml-rust" }
 regex = "1"
 comrak = "0.9"
+maplit = "1"
 
 [patch.crates-io]
 actix-web-codegen = { git = "https://github.com/verilab/actix-web" }
