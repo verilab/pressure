@@ -191,7 +191,8 @@ mod tests {
     #[test]
     fn test_load_entry() {
         let entry = load_entry("tests/test_inst/pages/test.md", false).unwrap();
-        assert_eq!(entry.content, "BAZ\n\nFOO BAR!");
+        assert!(entry.content.contains("<p>BAZ</p>"));
+        assert!(entry.content.contains("<p>FOO BAR!</p>"));
         assert_eq!(entry.meta["title"].as_str().unwrap(), "Foo bar 中文");
         assert_eq!(entry.meta["tags"][0].as_str().unwrap(), "foo");
         assert_eq!(entry.meta["categories"][0].as_str().unwrap(), "bar");
@@ -230,7 +231,7 @@ mod tests {
                 .unwrap(),
             "Dev"
         );
-        assert!(post.content.contains("## 喵"));
+        assert!(post.content.contains("<h2>喵</h2"));
     }
 
     #[test]
