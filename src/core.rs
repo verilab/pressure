@@ -1,3 +1,5 @@
+//! This module handles entry loading.
+
 use std::{fs, path::PathBuf};
 
 use chrono::{NaiveDate, NaiveDateTime};
@@ -177,15 +179,20 @@ impl Entry {
                 if let Yaml::String(_) = val {
                     *val = Yaml::Array(vec![val.clone()])
                 }
+            } else {
+                self.meta
+                    .as_hash_mut()
+                    .unwrap()
+                    .insert(Yaml::String(key.to_owned()), Yaml::Array(vec![]));
             }
         }
 
         // insert default title
-        if let (None, Some(title)) = (self.meta.get("title"), defaults.title) {
-            self.meta
-                .as_hash_mut()
-                .unwrap()
-                .insert(Yaml::String("title".to_string()), Yaml::String(title));
+        if let None = self.meta.get("title") {
+            self.meta.as_hash_mut().unwrap().insert(
+                Yaml::String("title".to_string()),
+                Yaml::String(defaults.title.unwrap_or_default()),
+            );
         }
 
         // parse created datetime
@@ -204,6 +211,11 @@ impl Entry {
                 Yaml::String(format!("{}", created.format("%Y-%m-%d %H:%M:%S"))),
             );
             self.created = Some(created);
+        } else {
+            self.meta.as_hash_mut().unwrap().insert(
+                Yaml::String("created".to_string()),
+                Yaml::String("".to_string()),
+            );
         }
 
         // parse updated datetime
@@ -216,6 +228,11 @@ impl Entry {
             } else {
                 dt_str.clear(); // clear invalid datetime
             }
+        } else {
+            self.meta.as_hash_mut().unwrap().insert(
+                Yaml::String("created".to_string()),
+                Yaml::String("".to_string()),
+            );
         }
 
         Ok(())

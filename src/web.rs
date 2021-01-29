@@ -8,13 +8,14 @@ use actix_web::{
     Responder,
 };
 use tera::{Context, Tera};
+use yaml_rust::Yaml;
 
 use crate::{Entry, EntryType, Instance, PressResult};
 
 fn new_context(state: &web::Data<State>) -> Context {
     let mut ctx = Context::new();
     ctx.insert("site", &state.instance.site);
-    ctx.insert("config", &state.instance.config);
+    // ctx.insert("config", &state.instance.config);
     ctx
 }
 
@@ -37,9 +38,15 @@ impl Entry {
     }
 }
 
+fn load_posts(instance: &Instance, req: &HttpRequest, meta_only: bool) -> Vec<Entry> {
+    let mut posts = instance.load_posts(meta_only).unwrap();
+    posts.iter_mut().for_each(|p| p.generate_url(req));
+    return posts;
+}
+
 fn handle_index_page(state: web::Data<State>, req: HttpRequest, page_num: usize) -> impl Responder {
     let posts_per_page = state.instance.config.posts_per_index_page as usize;
-    let mut posts = state.instance.load_posts(true).unwrap();
+    let mut posts = load_posts(&state.instance, &req, true);
     let post_count = posts.len();
     let page_count = (post_count + posts_per_page - 1) / posts_per_page;
     if page_num < 1 || page_num > page_count {
@@ -68,7 +75,6 @@ fn handle_index_page(state: web::Data<State>, req: HttpRequest, page_num: usize)
     let posts_to_render = &mut posts[begin..end];
     posts_to_render.iter_mut().for_each(|p| {
         p.load_content();
-        p.generate_url(&req);
     });
 
     let mut context = new_context(&state);
@@ -110,18 +116,60 @@ async fn post(
 }
 
 #[get("/archive/")]
-async fn archive(state: web::Data<State>) -> impl Responder {
-    HttpResponse::Ok().body("archive")
+async fn archive(state: web::Data<State>, req: HttpRequest) -> impl Responder {
+    let posts = load_posts(&state.instance, &req, true);
+    let mut context = new_context(&state);
+    context.insert("entries", &posts);
+    context.insert("archive", &hashmap! {"type" => "Archive", "name" => "All"});
+    HttpResponse::Ok().body(state.templates.render("archive.html", &context).unwrap())
 }
 
 #[get("/category/{name}/")]
-async fn category(state: web::Data<State>, web::Path(name): web::Path<String>) -> impl Responder {
-    HttpResponse::Ok().body(format!("category: {}", name))
+async fn category(
+    state: web::Data<State>,
+    req: HttpRequest,
+    web::Path(name): web::Path<String>,
+) -> impl Responder {
+    let posts = load_posts(&state.instance, &req, true);
+    let mut context = new_context(&state);
+    context.insert(
+        "entries",
+        &posts
+            .iter()
+            .filter(|p| {
+                p.meta["categories"]
+                    .as_vec()
+                    .unwrap()
+                    .contains(&Yaml::String(name.clone()))
+            })
+            .collect::<Vec<&Entry>>(),
+    );
+    context.insert("archive", &hashmap! {"type" => "Category", "name" => &name});
+    HttpResponse::Ok().body(state.templates.render("archive.html", &context).unwrap())
 }
 
 #[get("/tag/{name}/")]
-async fn tag(state: web::Data<State>, web::Path(name): web::Path<String>) -> impl Responder {
-    HttpResponse::Ok().body(format!("tag: {}", name))
+async fn tag(
+    state: web::Data<State>,
+    req: HttpRequest,
+    web::Path(name): web::Path<String>,
+) -> impl Responder {
+    let posts = load_posts(&state.instance, &req, true);
+    let mut context = new_context(&state);
+    context.insert(
+        "entries",
+        &posts
+            .iter()
+            .filter(|p| {
+                p.meta["tags"]
+                    .as_vec()
+                    .unwrap()
+                    .contains(&Yaml::String(name.clone()))
+            })
+            .collect::<Vec<&Entry>>(),
+    );
+    context.insert("archive", &hashmap! {"type" => "Tag", "name" => &name});
+    HttpResponse::Ok().body(state.templates.render("archive.html", &context).unwrap())
 }
 
 #[get("/static/{filename:.*}", name = "static")]
