@@ -1450,7 +1450,6 @@ dependencies = [
  "actix-service",
  "actix-web",
  "chrono",
- "chrono-tz",
  "comrak",
  "lazy_static",
  "maplit",
