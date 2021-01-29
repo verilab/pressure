@@ -93,7 +93,7 @@ impl Instance {
                 Regex::new(r#"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})-(?P<name>.+).md$"#)
                     .unwrap();
         }
-        Ok(fs::read_dir(&self.posts_folder)?
+        let mut posts: Vec<Entry> = fs::read_dir(&self.posts_folder)?
             .filter_map(|dirent| {
                 let dirent = dirent.ok()?;
                 let filename = dirent.file_name().to_str()?.to_string();
@@ -106,7 +106,20 @@ impl Instance {
                 );
                 self.load_post(year, month, day, name, meta_only).ok()
             })
-            .collect())
+            .collect();
+        posts.sort_by(|p1, p2| {
+            if p1.created.is_none() && p1.created.is_none() {
+                std::cmp::Ordering::Equal
+            } else if p1.created.is_none() {
+                std::cmp::Ordering::Less
+            } else if p2.created.is_none() {
+                std::cmp::Ordering::Greater
+            } else {
+                // the bigger the datetime, the more front it should be
+                p2.created.unwrap().cmp(&p1.created.unwrap())
+            }
+        });
+        Ok(posts)
     }
 }
 

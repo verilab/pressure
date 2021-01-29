@@ -50,8 +50,18 @@ impl Serialize for Entry {
             s.serialize_entry(&SerYaml(k), &SerYaml(v))?;
         }
         s.serialize_entry("url", "")?; // TODO: fill the url
-        s.serialize_entry("created", "")?; // TODO: ensure these fields after loading the entry
-        s.serialize_entry("updated", "")?;
+        match self.created {
+            Some(created) => {
+                s.serialize_entry("created", &format!("{}", created.format("%Y-%m-%d")))?
+            }
+            None => s.serialize_entry("created", "")?,
+        }
+        match self.updated {
+            Some(updated) => {
+                s.serialize_entry("updated", &format!("{}", updated.format("%Y-%m-%d")))?
+            }
+            None => s.serialize_entry("updated", "")?,
+        }
         s.serialize_entry("filepath", &self.filepath)?;
         s.serialize_entry("meta", &SerYaml(&self.meta))?;
         s.serialize_entry("content", &self.content)?;
