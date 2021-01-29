@@ -123,6 +123,42 @@ impl Instance {
         });
         Ok(posts)
     }
+
+    pub fn load_page<T: Into<PathBuf>>(&self, rel_url: T) -> PressResult<Entry> {
+        let mut filepath = self.pages_folder.join(rel_url.into());
+        if !filepath.starts_with(&self.pages_folder) {
+            return Err(PressError::new("Bad URL"));
+        }
+        if filepath.is_dir() {
+            // e.g. foo/bar/ -> foo/bar/index.md
+            filepath.push("index.md");
+        } else if filepath.extension().unwrap_or_default() == "html" {
+            // e.g. foo/bar.html -> foo/bar.md
+            filepath.set_extension("md");
+        } else if let Some(filename) = filepath.file_name() {
+            // e.g. foo/bar -> foo/bar.md
+            let filename = filename.to_owned();
+            filepath.set_file_name(filename.to_str().unwrap().to_string() + ".md");
+        }
+        if filepath.extension().unwrap_or_default() != "md" {
+            return Err(PressError::new("Bad page path"));
+        }
+        let mut page = load_entry(EntryType::Page, &filepath, false)?;
+        page.canonicalize_meta(EntryMetaDefaults {
+            title: Some(
+                filepath
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap()
+                    .split("-")
+                    .collect::<Vec<&str>>()
+                    .join(" "),
+            ),
+            ..Default::default()
+        })?;
+        Ok(page)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -192,6 +192,29 @@ async fn theme_static(
     )?)
 }
 
+#[get("/{rel_url:.*}")]
+async fn page(
+    state: web::Data<State>,
+    req: HttpRequest,
+    web::Path(rel_url): web::Path<PathBuf>,
+) -> impl Responder {
+    if let Ok(page) = state.instance.load_page(&rel_url) {
+        let mut context = new_context(&state);
+        context.insert("entry", &page);
+        HttpResponse::Ok().body(state.templates.render("page.html", &context).unwrap())
+    } else {
+        let filepath = state.instance.raw_folder.join(&rel_url);
+        if !filepath.starts_with(&state.instance.raw_folder) {
+            return HttpResponse::Forbidden().finish();
+        }
+        if let Ok(file) = actix_files::NamedFile::open(filepath) {
+            file.into_response(&req).unwrap()
+        } else {
+            HttpResponse::NotFound().finish()
+        }
+    }
+}
+
 thread_local! {
     static ROUTES_KEY: OnceCell<ResourceMap> = OnceCell::new();
 }
@@ -266,6 +289,7 @@ pub fn serve(instance: Instance, host: &str, port: u16) -> PressResult<()> {
                 .service(tag)
                 .service(root_static)
                 .service(theme_static)
+                .service(page)
         })
         .bind(addr)?
         .run()
