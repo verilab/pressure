@@ -72,7 +72,7 @@ async fn index_page(
     handle_index_page(state, req, page_num)
 }
 
-#[get("/post/{year}/{month}/{day}/{name}/")]
+#[get(r#"/post/{year:\d{4}}/{month:\d{2}}/{day:\d{2}}/{name}/"#)]
 async fn post(
     state: web::Data<State>,
     web::Path((year, month, day, name)): web::Path<(String, String, String, String)>,

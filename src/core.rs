@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf};
 
+use chrono::{NaiveDate, NaiveDateTime};
 use comrak::{markdown_to_html, ComrakOptions};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -74,14 +75,13 @@ impl Instance {
     ) -> PressResult<Entry> {
         let filename = format!("{:04}-{:02}-{:02}-{}.md", year, month, day, name);
         let mut post = load_entry(self.posts_folder.join(filename), meta_only)?;
-        let meta = post.meta.as_hash_mut().unwrap();
-        let title_key = Yaml::String("title".to_string());
-        if !meta.contains_key(&title_key) {
-            meta.insert(
-                title_key,
-                Yaml::String(name.split("-").collect::<Vec<&str>>().join(" ")),
-            );
-        }
+        post.canonicalize_meta(EntryMetaDefaults {
+            title: Some(name.split("-").collect::<Vec<&str>>().join(" ")),
+            created: Some(
+                NaiveDate::from_ymd(year.into(), month.into(), day.into()).and_hms(0, 0, 0),
+            ),
+            ..Default::default()
+        })?;
         Ok(post)
     }
 
@@ -112,6 +112,8 @@ impl Instance {
 pub struct Entry {
     pub filepath: PathBuf,
     pub meta: Yaml,
+    pub created: Option<NaiveDateTime>,
+    pub updated: Option<NaiveDateTime>,
     pub content: String,
 }
 
@@ -120,13 +122,80 @@ impl Default for Entry {
         Entry {
             filepath: "".into(),
             meta: Yaml::Hash(yaml::Hash::new()),
+            created: None,
+            updated: None,
             content: "".into(),
         }
     }
 }
 
+struct EntryMetaDefaults {
+    title: Option<String>,
+    created: Option<NaiveDateTime>,
+}
+
+impl Default for EntryMetaDefaults {
+    fn default() -> Self {
+        Self {
+            title: None,
+            created: None,
+        }
+    }
+}
+
 impl Entry {
-    pub fn load_content(&mut self) {
+    fn canonicalize_meta(&mut self, defaults: EntryMetaDefaults) -> PressResult<()> {
+        // ensure categories and tags are arrays
+        for key in vec!["categories", "tags"] {
+            if let Some(val) = self.meta.get_mut(key) {
+                if let Yaml::String(_) = val {
+                    *val = Yaml::Array(vec![val.clone()])
+                }
+            }
+        }
+
+        // insert default title
+        if let (None, Some(title)) = (self.meta.get("title"), defaults.title) {
+            self.meta
+                .as_hash_mut()
+                .unwrap()
+                .insert(Yaml::String("title".to_string()), Yaml::String(title));
+        }
+
+        // parse created datetime
+        if let Some(Yaml::String(dt_str)) = self.meta.get_mut("created") {
+            if let Ok(dt) = NaiveDateTime::parse_from_str(dt_str, "%Y-%m-%d %H:%M:%S") {
+                self.created = Some(dt);
+            } else if let Ok(d) = NaiveDate::parse_from_str(dt_str, "%Y-%m-%d") {
+                dt_str.push_str(" 00:00:00");
+                self.created = Some(d.and_hms(0, 0, 0));
+            } else {
+                dt_str.clear(); // clear invalid datetime
+            }
+        } else if let Some(created) = defaults.created {
+            self.meta.as_hash_mut().unwrap().insert(
+                Yaml::String("created".to_string()),
+                Yaml::String(format!("{}", created.format("%Y-%m-%d %H:%M:%S"))),
+            );
+            self.created = Some(created);
+        }
+
+        // parse updated datetime
+        if let Some(Yaml::String(dt_str)) = self.meta.get_mut("updated") {
+            if let Ok(dt) = NaiveDateTime::parse_from_str(dt_str, "%Y-%m-%d %H:%M:%S") {
+                self.updated = Some(dt);
+            } else if let Ok(d) = NaiveDate::parse_from_str(dt_str, "%Y-%m-%d") {
+                dt_str.push_str(" 00:00:00");
+                self.updated = Some(d.and_hms(0, 0, 0));
+            } else {
+                dt_str.clear(); // clear invalid datetime
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn load_content(&mut self) {
         let entry = load_entry(&self.filepath, false).unwrap();
         self.content = entry.content;
     }
@@ -153,23 +222,11 @@ where
         if let Some(fm_end) = tmp_lines.iter().position(|&x| x == "---") {
             let front_matter = tmp_lines[..fm_end].join("\n");
             entry.meta = YamlLoader::load_from_str(&front_matter)?[0].clone();
-            match entry.meta {
-                Yaml::Hash(_) => {}
-                _ => {
-                    return Err(PressError::new(
-                        "Frontmatter must be a valid YAML hash map.",
-                    ))
-                }
+            if entry.meta.as_hash().is_none() {
+                return Err(PressError::new(
+                    "Frontmatter must be a valid YAML hash map.",
+                ));
             }
-
-            for key in vec!["categories", "tags"] {
-                if let Some(val) = entry.meta.get_mut(key) {
-                    if let Yaml::String(_) = val {
-                        *val = Yaml::Array(vec![val.clone()])
-                    }
-                }
-            }
-
             remained = &tmp_lines[fm_end + 1..];
         }
     }
@@ -202,7 +259,7 @@ mod tests {
         assert!(entry.content.contains("<p>FOO BAR!</p>"));
         assert_eq!(entry.meta["title"].as_str().unwrap(), "Foo bar 中文");
         assert_eq!(entry.meta["tags"][0].as_str().unwrap(), "foo");
-        assert_eq!(entry.meta["categories"][0].as_str().unwrap(), "bar");
+        assert_eq!(entry.meta["categories"].as_str().unwrap(), "bar");
     }
 
     #[test]
@@ -225,6 +282,10 @@ mod tests {
             .load_post(2020, 12, 27, "test-no-content", false)
             .unwrap();
         assert_eq!(post.meta["title"].as_str().unwrap(), "test no content");
+        assert_eq!(
+            post.created.unwrap(),
+            NaiveDate::from_ymd(2020, 12, 27).and_hms(0, 0, 0)
+        );
     }
 
     #[test]
