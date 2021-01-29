@@ -19,6 +19,7 @@ regex = "1"
 comrak = "0.9"
 maplit = "1"
 chrono = "0.4"
+env_logger = "0.8"
 
 [patch.crates-io]
 actix-web-codegen = { git = "https://github.com/verilab/actix-web" }

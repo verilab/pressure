@@ -4,8 +4,8 @@ use std::{cmp::min, collections::HashMap, lazy::OnceCell, path::PathBuf};
 
 use actix_service::Service;
 use actix_web::{
-    dev::ResourceMap, get, test::TestRequest, web, App, HttpRequest, HttpResponse, HttpServer,
-    Responder,
+    dev::ResourceMap, get, middleware::Logger, test::TestRequest, web, App, HttpRequest,
+    HttpResponse, HttpServer, Responder,
 };
 use tera::{Context, Tera};
 use yaml_rust::Yaml;
@@ -275,6 +275,7 @@ pub fn serve(instance: Instance, host: &str, port: u16) -> PressResult<()> {
                     instance: instance.clone(),
                     templates: tera,
                 }))
+                .wrap(Logger::default())
                 .wrap_fn(move |req, srv| {
                     ROUTES_KEY.with(|routes| {
                         routes.get_or_init(|| req.resource_map().clone());
