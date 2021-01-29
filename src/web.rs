@@ -28,7 +28,7 @@ impl Entry {
                     .unwrap()
                     .to_str()
                     .unwrap()
-                    .split("-")
+                    .splitn(4, "-")
                     .collect();
                 self.url = Some(req.url_for("post", elems).unwrap().path().to_string())
             }
@@ -97,9 +97,16 @@ async fn index_page(
 #[get(r#"/post/{year:\d{4}}/{month:\d{2}}/{day:\d{2}}/{name}/"#)]
 async fn post(
     state: web::Data<State>,
-    web::Path((year, month, day, name)): web::Path<(String, String, String, String)>,
+    web::Path((year, month, day, name)): web::Path<(u16, u8, u8, String)>,
 ) -> impl Responder {
-    HttpResponse::Ok().body(format!("post: {}-{}-{}-{}", year, month, day, name))
+    let post = state.instance.load_post(year, month, day, &name, false);
+    if post.is_err() {
+        return HttpResponse::NotFound().finish();
+    }
+    let post = post.unwrap();
+    let mut context = new_context(&state);
+    context.insert("entry", &post);
+    HttpResponse::Ok().body(state.templates.render("post.html", &context).unwrap())
 }
 
 #[get("/archive/")]
