@@ -9,13 +9,32 @@ use actix_web::{
 };
 use tera::{Context, Tera};
 
-use crate::{Instance, PressResult};
+use crate::{Entry, EntryType, Instance, PressResult};
 
 fn new_context(state: &web::Data<State>) -> Context {
     let mut ctx = Context::new();
     ctx.insert("site", &state.instance.site);
     ctx.insert("config", &state.instance.config);
     ctx
+}
+
+impl Entry {
+    fn generate_url(&mut self, req: &HttpRequest) {
+        match self.etype {
+            EntryType::Post => {
+                let elems: Vec<&str> = self
+                    .filepath
+                    .file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .split("-")
+                    .collect();
+                self.url = Some(req.url_for("post", elems).unwrap().path().to_string())
+            }
+            _ => {}
+        }
+    }
 }
 
 fn handle_index_page(state: web::Data<State>, req: HttpRequest, page_num: usize) -> impl Responder {
@@ -47,7 +66,10 @@ fn handle_index_page(state: web::Data<State>, req: HttpRequest, page_num: usize)
     let begin = (page_num - 1) * posts_per_page;
     let end = min(post_count, begin + posts_per_page);
     let posts_to_render = &mut posts[begin..end];
-    posts_to_render.iter_mut().for_each(|p| p.load_content());
+    posts_to_render.iter_mut().for_each(|p| {
+        p.load_content();
+        p.generate_url(&req);
+    });
 
     let mut context = new_context(&state);
     context.insert("entries", posts_to_render);

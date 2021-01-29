@@ -76,7 +76,7 @@ impl Instance {
         meta_only: bool,
     ) -> PressResult<Entry> {
         let filename = format!("{:04}-{:02}-{:02}-{}.md", year, month, day, name);
-        let mut post = load_entry(self.posts_folder.join(filename), meta_only)?;
+        let mut post = load_entry(EntryType::Post, self.posts_folder.join(filename), meta_only)?;
         post.canonicalize_meta(EntryMetaDefaults {
             title: Some(name.split("-").collect::<Vec<&str>>().join(" ")),
             created: Some(
@@ -123,9 +123,18 @@ impl Instance {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum EntryType {
+    Post,
+    Page,
+    Unknown,
+}
+
 #[derive(Debug, Clone)]
 pub struct Entry {
+    pub etype: EntryType,
     pub filepath: PathBuf,
+    pub url: Option<String>,
     pub meta: Yaml,
     pub created: Option<NaiveDateTime>,
     pub updated: Option<NaiveDateTime>,
@@ -135,7 +144,9 @@ pub struct Entry {
 impl Default for Entry {
     fn default() -> Self {
         Entry {
+            etype: EntryType::Unknown,
             filepath: "".into(),
+            url: None,
             meta: Yaml::Hash(yaml::Hash::new()),
             created: None,
             updated: None,
@@ -211,18 +222,19 @@ impl Entry {
     }
 
     pub(crate) fn load_content(&mut self) {
-        let entry = load_entry(&self.filepath, false).unwrap();
+        let entry = load_entry(EntryType::Post, &self.filepath, false).unwrap();
         self.content = entry.content;
     }
 }
 
 /// Load a Markdown entry, either a post or a page.
 /// If ok, the entry.meta field is guarenteed to be an Yaml::Hash.
-fn load_entry<P>(filepath: P, meta_only: bool) -> PressResult<Entry>
+fn load_entry<P>(etype: EntryType, filepath: P, meta_only: bool) -> PressResult<Entry>
 where
     P: Into<PathBuf>,
 {
     let mut entry = Entry {
+        etype,
         filepath: filepath.into().canonicalize()?,
         ..Entry::default()
     };
@@ -269,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_load_entry() {
-        let entry = load_entry("tests/test_inst/pages/test.md", false).unwrap();
+        let entry = load_entry(EntryType::Page, "tests/test_inst/pages/test.md", false).unwrap();
         assert!(entry.content.contains("<p>BAZ</p>"));
         assert!(entry.content.contains("<p>FOO BAR!</p>"));
         assert_eq!(entry.meta["title"].as_str().unwrap(), "Foo bar 中文");
@@ -279,14 +291,18 @@ mod tests {
 
     #[test]
     fn test_load_entry_meta_only() {
-        let entry = load_entry("tests/test_inst/pages/test.md", true).unwrap();
+        let entry = load_entry(EntryType::Page, "tests/test_inst/pages/test.md", true).unwrap();
         assert!(entry.content.is_empty());
         assert_eq!(entry.meta["title"].as_str().unwrap(), "Foo bar 中文");
     }
 
     #[test]
     fn test_load_entry_failed() {
-        let res = load_entry("tests/test_inst/pages/nonexistent.md", false);
+        let res = load_entry(
+            EntryType::Page,
+            "tests/test_inst/pages/nonexistent.md",
+            false,
+        );
         assert!(res.is_err());
     }
 

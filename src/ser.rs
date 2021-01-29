@@ -49,14 +49,17 @@ impl Serialize for Entry {
         for (k, v) in self.meta.as_hash().unwrap() {
             s.serialize_entry(&SerYaml(k), &SerYaml(v))?;
         }
-        s.serialize_entry("url", "")?; // TODO: fill the url
-        match self.created {
+        match &self.url {
+            Some(url) => s.serialize_entry("url", url)?,
+            None => s.serialize_entry("url", "")?,
+        }
+        match &self.created {
             Some(created) => {
                 s.serialize_entry("created", &format!("{}", created.format("%Y-%m-%d")))?
             }
             None => s.serialize_entry("created", "")?,
         }
-        match self.updated {
+        match &self.updated {
             Some(updated) => {
                 s.serialize_entry("updated", &format!("{}", updated.format("%Y-%m-%d")))?
             }
